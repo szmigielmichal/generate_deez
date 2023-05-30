@@ -15,6 +15,7 @@ fn main() {
             "2" => println!("adding user"),
             "3" => println!("setting up new repo"),
             "4" => branch(),
+            "5" => update(),
             "q"|"Q" => process::exit(0x0100),
             opt => { println!("Invalid option: {}", opt); continue; }
         }
@@ -58,7 +59,7 @@ fn download_repo() {
 }
 
 fn branch() {
-    let branch_name = "new-branch";
+    let branch_name = "new-branch1";
     let repo = Repository::open(
         Path::new(&format!("{}/Code/infrastructure-as-code", env::var("HOME").unwrap()))
     ).unwrap();
@@ -77,6 +78,31 @@ fn branch() {
     ).unwrap();
 
     repo.set_head(&("refs/heads/".to_owned() + branch_name)).unwrap();
+
+    println!("Set up new branch: {}", &branch_name);
+}
+
+fn update() {
+    let mut callbacks = RemoteCallbacks::new();
+      callbacks.credentials(|_url, username_from_url, _allowed_types| {
+        Cred::ssh_key(
+          username_from_url.unwrap(),
+          None,
+          Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),
+          Some(env::var("PASSPHRASE").unwrap().as_str()),
+        )
+      });
+
+      let mut fo = git2::FetchOptions::new();
+      fo.remote_callbacks(callbacks);
+
+    let repo = Repository::open(
+        Path::new(&format!("{}/Code/infrastructure-as-code", env::var("HOME").unwrap()))
+    ).unwrap();
+
+    repo.find_remote("origin").unwrap().fetch(&["master"], Some(&mut fo), None).unwrap();
+
+    println!("Master branch has been updated.");
 }
 
 
