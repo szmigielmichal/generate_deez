@@ -1,9 +1,16 @@
 use std::{process, io, env, path::Path};
-use git2::{Repository, RemoteCallbacks, Cred, FetchOptions, PathspecFlags};
+use git2::{Repository, RemoteCallbacks, Cred, FetchOptions};
 use dotenv::dotenv;
 use std::io::{BufReader, BufRead, Write};
 use std::fs::File;
 use std::fs;
+
+enum Action {
+    MembershipsTsh,
+    UsersOutput,
+    UsersTsh
+}
+
 fn main() {
     dotenv().ok();
 
@@ -54,7 +61,27 @@ resource \"gitlab_group_membership\" \"tsh_{first_name}_{last_name}\" {{
 }}
 ");
 
-    write_to_repo(membership_data, membership_file_name, membership_file_path).unwrap();
+    let users_output_file_name = "output.tf".to_string();
+    let users_output_file_path = "gitlab/users".to_string();
+    let users_output_data = format!("{}_{}", first_name.to_lowercase(), last_name.to_lowercase());
+
+    let users_tsh_file_name = "tsh.tf".to_string();
+    let users_tsh_file_path = "gitlab/users".to_string();
+    let users_tsh_data = format!("
+resource \"gitlab_user\" \"{}_{}\" {{
+  name             = \"{} {}\"
+  username         = \"{}.{}\"
+  password         = \"\"
+  email            = \"{}\"
+  is_admin         = false
+  can_create_group = false
+  projects_limit   = 0
+  reset_password   = true
+}}", first_name.to_lowercase(), last_name.to_lowercase(), first_name, last_name, first_name.to_lowercase(), last_name.to_lowercase(), email);
+
+    write_to_repo(membership_data, membership_file_name, membership_file_path, Action::MembershipsTsh).unwrap();
+    write_to_repo(users_output_data, users_output_file_name, users_output_file_path, Action::UsersOutput).unwrap();
+    write_to_repo(users_tsh_data, users_tsh_file_name, users_tsh_file_path, Action::UsersTsh).unwrap();
 }
 
 fn add_repo() {
@@ -129,22 +156,45 @@ fn set_credentials() -> FetchOptions<'static> {
     fetch_options
 }
 
-fn write_to_repo(passed_data: String, file_name: String, file_path: String) -> Result<(), std::io::Error>{
+fn write_to_repo(passed_data: String, file_name: String, file_path: String, action: Action) -> Result<(), std::io::Error>{
     let base = format!("{}/Code/infrastructure-as-code", env::var("HOME").unwrap());
     let file_path = format!("{}/{}/{}", base, file_path, &file_name);
     println!("{}", file_path); 
-    let tsh_file = read_lines(&file_path)?;
+    let existing_file = read_lines(&file_path)?;
     let file = File::create(format!("{}.tmp", file_path)).unwrap();
     let mut data = vec![];
     
-    for line in tsh_file {
-        data.push(line?);
+    match action {
+        Action::MembershipsTsh => { 
+            for line in existing_file {
+                data.push(line?);
+            }
+            data.push(passed_data);
+        },
+        Action::UsersOutput => {
+            for line in existing_file {
+                data.push(find_maciej(line?, &passed_data));
+            }
+        },
+        Action::UsersTsh => {
+            for line in existing_file {
+                data.push(line?);
+            }
+            data.push(passed_data);
+        }
     }
-    data.push(passed_data);
 
     process_file(data.join("\n"), file, file_path)?;
     println!("Successfully wrote to {}", file_name);
     Ok(())
+}
+
+fn find_maciej(line: String, passed_data: &String) -> String {
+    match line {
+        x if x.contains("maciejsajdok") => format!("    maciejsajdok           = {{ id = gitlab_user.maciejsajdok.id }}
+    {passed_data}\t= {{ id = gitlab_user{passed_data}.id }}", ),
+        _ => line
+    }
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<BufReader<File>>>
