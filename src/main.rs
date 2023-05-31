@@ -24,7 +24,7 @@ fn main() {
             "2" => add_user(),
             "3" => println!("setting up new repo"),
             // "4" => create_branch(),
-            "5" => update_branch(),
+            "5" => update_master(),
             "q"|"Q" => process::exit(0x0100),
             opt => { println!("Invalid option: {}", opt); continue; }
         }
@@ -127,7 +127,7 @@ fn create_branch(first_name: &String, last_name: &String) {
     println!("Set up new branch: {}", &branch_name);
 }
 
-fn update_branch() {
+fn update_master() {
     let mut fetch_options = set_credentials();
 
     let repo = Repository::open(
