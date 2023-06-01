@@ -1,5 +1,5 @@
 use std::{process, io, env, path::Path};
-use git2::{Repository, RemoteCallbacks, Cred, FetchOptions};
+use git2::{Repository, RemoteCallbacks, Cred, FetchOptions, DiffDelta, DiffHunk, DiffLine};
 use dotenv::dotenv;
 use std::io::{BufReader, BufRead, Write};
 use std::fs::File;
@@ -25,6 +25,7 @@ fn main() {
             "3" => println!("setting up new repo"),
             // "4" => create_branch(),
             "5" => update_master(),
+            "6" => print_diff(),
             "q"|"Q" => process::exit(0x0100),
             opt => { println!("Invalid option: {}", opt); continue; }
         }
@@ -209,4 +210,29 @@ fn process_file(joined_data: String, mut file: File, file_path: String) -> Resul
         fs::remove_file(format!("{}", &file_path))?;
         fs::rename(format!("{}.tmp", file_path), file_path)?;
         Ok(())
+}
+
+fn print_diff() {
+    let repo = Repository::open(
+        Path::new(&format!("{}/Code/infrastructure-as-code", env::var("HOME").unwrap()))
+    ).unwrap();
+
+    let index = repo.index().unwrap();
+
+    let diff = repo.diff_index_to_workdir(Some(&index), None).unwrap();
+
+    diff.print(git2::DiffFormat::Patch, |d, h, l| print_diff_line(d,h,l)).unwrap();
+}
+
+fn print_diff_line(
+    _delta: DiffDelta,
+    _hunk: Option<DiffHunk>,
+    line: DiffLine,
+) -> bool {
+    match line.origin() {
+        '+' | '-' | ' ' => print!("{}", line.origin()),
+        _ => {}
+    }
+    print!("{}", std::str::from_utf8(line.content()).unwrap());
+    true
 }
