@@ -8,12 +8,12 @@ enum Action {
     UsersOutput,
     UsersTsh,
 
-    // ProjectsCicdVars,
-    // ProjectsProtectBranchesRule1,
-    // ProjectsShareWithGroupsTsh,
-    // ProjectsMockOutput,
-    // ProjectsOutput,
-    // ProjectsQiwa
+    ProjectsCicdVars,
+    ProjectsProtectBranchesRule1,
+    ProjectsShareWithGroupsTsh,
+    ProjectsMockOutput,
+    ProjectsOutput,
+    ProjectsQiwa
 }
 
 fn main() {
@@ -115,6 +115,59 @@ fn add_repo() {
     println!("Adding new repo: {}, with description: {}", project_name, description);
     let branch_name = format!("{}", project_name.replace(" ", "-"));
     create_branch(branch_name);
+    add_cicd_vars(&project_name);
+    add_protect_branches(&project_name);
+    add_share_groups(&project_name);
+    add_mock_output(&project_name);
+    add_projects_output(&project_name);
+    add_projects_qiwa(&project_name, &description);
+}
+
+fn add_projects_qiwa(project_name: &str, description: &str) {
+    let name_underscored = project_name.replace(" ", "_");
+    let name_hyphened = project_name.replace(" ", "-");
+    let data = format!("
+resource \"gitlab_project\" \"{name_underscored}\" {{
+  name                             = \"{name_hyphened}\"
+  namespace_id                     = var.gitlab_groups.qiwa.id
+  visibility_level                 = \"private\"
+  request_access_enabled           = false
+  shared_runners_enabled           = true
+  default_branch                   = \"master\"
+  description                      = \"{description}\"
+  remove_source_branch_after_merge = false
+  initialize_with_readme           = true
+  public_builds                    = false
+
+  lifecycle {{
+    prevent_destroy = true
+  }}
+}} 
+");
+    let file_name = "cicd_vars_qiwa.tf".to_string();
+    let file_path = "gitlab/projects/cicd_variables".to_string();
+
+    write_to_repo(data, file_name, file_path, Action::ProjectsCicdVars).unwrap();
+}
+
+fn add_projects_output(project_name: &str) {
+    todo!()
+}
+
+fn add_mock_output(project_name: &str) {
+    todo!()
+}
+
+fn add_share_groups(project_name: &str) {
+    todo!()
+}
+
+fn add_protect_branches(project_name: &str) {
+    todo!()
+}
+
+fn add_cicd_vars(project_name: &str) {
+    todo!()
 }
 
 fn download_repo() {
@@ -188,7 +241,14 @@ fn write_to_repo(passed_data: String, file_name: String, file_path: String, acti
                 data.push(line?);
             }
             data.push(passed_data);
-        }
+        },
+        Action::ProjectsCicdVars => todo!(),
+        Action::ProjectsProtectBranchesRule1 => todo!(),
+        Action::ProjectsShareWithGroupsTsh => todo!(),
+        Action::ProjectsMockOutput => todo!(),
+        Action::ProjectsOutput => todo!(),
+        Action::ProjectsQiwa => todo!(),
+
     }
 
     process_file(data.join("\n"), file, file_path)?;
