@@ -1,13 +1,19 @@
 pub mod helpers;
 use dotenv::dotenv;
-use git2::Repository;
 use std::{process, io, env, path::Path, fs::File};
-use crate::helpers::{read_lines, process_file, print_diff, set_credentials};
+use crate::helpers::{read_lines, process_file, print_diff, set_credentials, open_repo};
 
 enum Action {
     MembershipsTsh,
     UsersOutput,
-    UsersTsh
+    UsersTsh,
+
+    // ProjectsCicdVars,
+    // ProjectsProtectBranchesRule1,
+    // ProjectsShareWithGroupsTsh,
+    // ProjectsMockOutput,
+    // ProjectsOutput,
+    // ProjectsQiwa
 }
 
 fn main() {
@@ -21,7 +27,7 @@ fn main() {
         match option.to_string().trim() {
             "1" => download_repo(),
             "2" => add_user(),
-            "3" => println!("setting up new repo"),
+            "3" => add_repo(),
             // "4" => create_branch(),
             "5" => update_master(),
             "6" => print_diff(),
@@ -50,7 +56,8 @@ fn add_user() {
     let email = email.trim().to_string();
 
     println!("Adding new user: {} {} - {}", first_name, last_name, email);
-    create_branch(&first_name, &last_name);
+    let branch_name = format!("add-user-{}-{}", first_name.to_lowercase(), last_name.to_lowercase());
+    create_branch(branch_name);
     let membership_file_name = "tsh.tf".to_string();
     let membership_file_path = "gitlab/memberships".to_string();
     let membership_data = format!("
@@ -85,7 +92,20 @@ resource \"gitlab_user\" \"{}_{}\" {{
 }
 
 fn add_repo() {
+    let mut project_name = String::new();
+    let mut description = String::new();
 
+    println!("Provide project name (No need for hyphens or underscores):");
+    io::stdin().read_line(&mut project_name).unwrap();
+    println!("Provide project description:");
+    io::stdin().read_line(&mut description).unwrap();
+
+    let project_name = project_name.trim().to_string();
+    let description = description.trim().to_string();
+    
+    println!("Adding new repo: {}, with description: {}", project_name, description);
+    let branch_name = format!("{}", project_name.replace(" ", "-"));
+    create_branch(branch_name);
 }
 
 fn download_repo() {
@@ -102,12 +122,9 @@ fn download_repo() {
     println!("Finished cloning");
 }
 
-fn create_branch(first_name: &String, last_name: &String) {
-    let branch_name = format!("add-user-{}-{}", first_name.to_lowercase(), last_name.to_lowercase());
+fn create_branch(branch_name: String) {
 
-    let repo = Repository::open(
-        Path::new(&format!("{}/Code/infrastructure-as-code", env::var("HOME").unwrap()))
-    ).unwrap();
+    let repo = open_repo();
 
     let object = repo.revparse_single("master").unwrap();
     let commit = object.as_commit().unwrap();
@@ -130,9 +147,7 @@ fn create_branch(first_name: &String, last_name: &String) {
 fn update_master() {
     let mut fetch_options = set_credentials();
 
-    let repo = Repository::open(
-        Path::new(&format!("{}/Code/infrastructure-as-code", env::var("HOME").unwrap()))
-    ).unwrap();
+    let repo = open_repo();
 
     repo.find_remote("origin").unwrap().fetch(&["master"], Some(&mut fetch_options), None).unwrap();
 

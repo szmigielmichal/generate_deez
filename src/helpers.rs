@@ -60,3 +60,10 @@ pub fn set_credentials() -> FetchOptions<'static> {
     fetch_options
 }
 
+pub fn open_repo() -> Repository {
+    let repo = Repository::open(
+        Path::new(&format!("{}/Code/infrastructure-as-code", env::var("HOME").unwrap()))
+    ).unwrap();
+    repo
+}
+
