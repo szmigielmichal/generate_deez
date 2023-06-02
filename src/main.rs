@@ -1,7 +1,7 @@
 pub mod helpers;
 use dotenv::dotenv;
 use std::{process, io, env, path::Path, fs::File};
-use crate::helpers::{read_lines, process_file, print_diff, set_credentials, open_repo};
+use crate::helpers::{read_lines, process_file, print_diff, set_credentials, open_repo, find_maciej};
 
 enum Action {
     MembershipsTsh,
@@ -58,6 +58,12 @@ fn add_user() {
     println!("Adding new user: {} {} - {}", first_name, last_name, email);
     let branch_name = format!("add-user-{}-{}", first_name.to_lowercase(), last_name.to_lowercase());
     create_branch(branch_name);
+    add_membership(&first_name, &last_name);
+    add_users_output(&first_name, &last_name);
+    add_users_tsh(&first_name, &last_name, &email);
+}
+
+fn add_membership(first_name: &String, last_name: &String) {
     let membership_file_name = "tsh.tf".to_string();
     let membership_file_path = "gitlab/memberships".to_string();
     let membership_data = format!("
@@ -67,11 +73,17 @@ resource \"gitlab_group_membership\" \"tsh_{first_name}_{last_name}\" {{
   access_level = \"developer\"
 }}
 ");
+    write_to_repo(membership_data, membership_file_name, membership_file_path, Action::MembershipsTsh).unwrap();
+}
 
+fn add_users_output(first_name: &String, last_name: &String) {
     let users_output_file_name = "output.tf".to_string();
     let users_output_file_path = "gitlab/users".to_string();
     let users_output_data = format!("{}_{}", first_name.to_lowercase(), last_name.to_lowercase());
+    write_to_repo(users_output_data, users_output_file_name, users_output_file_path, Action::UsersOutput).unwrap();
+}
 
+fn add_users_tsh(first_name: &String, last_name: &String, email: &String) {
     let users_tsh_file_name = "tsh.tf".to_string();
     let users_tsh_file_path = "gitlab/users".to_string();
     let users_tsh_data = format!("
@@ -85,9 +97,6 @@ resource \"gitlab_user\" \"{}_{}\" {{
   projects_limit   = 0
   reset_password   = true
 }}", first_name.to_lowercase(), last_name.to_lowercase(), first_name, last_name, first_name.to_lowercase(), last_name.to_lowercase(), email);
-
-    write_to_repo(membership_data, membership_file_name, membership_file_path, Action::MembershipsTsh).unwrap();
-    write_to_repo(users_output_data, users_output_file_name, users_output_file_path, Action::UsersOutput).unwrap();
     write_to_repo(users_tsh_data, users_tsh_file_name, users_tsh_file_path, Action::UsersTsh).unwrap();
 }
 
@@ -187,10 +196,3 @@ fn write_to_repo(passed_data: String, file_name: String, file_path: String, acti
     Ok(())
 }
 
-fn find_maciej(line: String, passed_data: &String) -> String {
-    match line {
-        x if x.contains("maciejsajdok") => format!("    maciejsajdok           = {{ id = gitlab_user.maciejsajdok.id }}
-    {passed_data}\t= {{ id = gitlab_user{passed_data}.id }}", ),
-        _ => line
-    }
-}

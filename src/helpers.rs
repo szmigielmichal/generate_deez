@@ -67,3 +67,10 @@ pub fn open_repo() -> Repository {
     repo
 }
 
+pub fn find_maciej(line: String, passed_data: &String) -> String {
+    match line {
+        x if x.contains("maciejsajdok") => format!("    maciejsajdok           = {{ id = gitlab_user.maciejsajdok.id }}
+    {passed_data}\t= {{ id = gitlab_user{passed_data}.id }}", ),
+        _ => line
+    }
+}
