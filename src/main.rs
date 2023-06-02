@@ -1,9 +1,8 @@
-use std::{process, io, env, path::Path};
-use git2::{Repository, RemoteCallbacks, Cred, FetchOptions, DiffDelta, DiffHunk, DiffLine};
+pub mod helpers;
 use dotenv::dotenv;
-use std::io::{BufReader, BufRead, Write};
-use std::fs::File;
-use std::fs;
+use git2::Repository;
+use std::{process, io, env, path::Path, fs::File};
+use crate::helpers::{read_lines, process_file, print_diff, set_credentials};
 
 enum Action {
     MembershipsTsh,
@@ -140,23 +139,6 @@ fn update_master() {
     println!("Master branch has been updated.");
 }
 
-fn set_credentials() -> FetchOptions<'static> {
-    let mut callbacks = RemoteCallbacks::new();
-      callbacks.credentials(|_url, username_from_url, _allowed_types| {
-        Cred::ssh_key(
-          username_from_url.unwrap(),
-          None,
-          Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),
-          Some(env::var("PASSPHRASE").unwrap().as_str()),
-        )
-      });
-
-    let mut fetch_options = git2::FetchOptions::new();
-    fetch_options.remote_callbacks(callbacks);
-
-    fetch_options
-}
-
 fn write_to_repo(passed_data: String, file_name: String, file_path: String, action: Action) -> Result<(), std::io::Error>{
     let base = format!("{}/Code/infrastructure-as-code", env::var("HOME").unwrap());
     let file_path = format!("{}/{}/{}", base, file_path, &file_name);
@@ -196,43 +178,4 @@ fn find_maciej(line: String, passed_data: &String) -> String {
     {passed_data}\t= {{ id = gitlab_user{passed_data}.id }}", ),
         _ => line
     }
-}
-
-fn read_lines<P>(filename: P) -> io::Result<io::Lines<BufReader<File>>>
-where P: AsRef<Path>,
-{
-    let file = File::open(filename)?;
-    Ok(io::BufReader::new(file).lines())
-}
-
-fn process_file(joined_data: String, mut file: File, file_path: String) -> Result<(), std::io::Error> {
-        file.write_all(joined_data.as_bytes())?;
-        fs::remove_file(format!("{}", &file_path))?;
-        fs::rename(format!("{}.tmp", file_path), file_path)?;
-        Ok(())
-}
-
-fn print_diff() {
-    let repo = Repository::open(
-        Path::new(&format!("{}/Code/infrastructure-as-code", env::var("HOME").unwrap()))
-    ).unwrap();
-
-    let index = repo.index().unwrap();
-
-    let diff = repo.diff_index_to_workdir(Some(&index), None).unwrap();
-
-    diff.print(git2::DiffFormat::Patch, |d, h, l| print_diff_line(d,h,l)).unwrap();
-}
-
-fn print_diff_line(
-    _delta: DiffDelta,
-    _hunk: Option<DiffHunk>,
-    line: DiffLine,
-) -> bool {
-    match line.origin() {
-        '+' | '-' | ' ' => print!("{}", line.origin()),
-        _ => {}
-    }
-    print!("{}", std::str::from_utf8(line.content()).unwrap());
-    true
 }
